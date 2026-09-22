@@ -9,7 +9,7 @@
  * only for the live session, so it renders without waiting on the worker to
  * wake up.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveStatus, RangeStats, Settings } from '../types';
 import { repository } from '../storage/repository';
 import { toDateKey } from '../utils/date';
@@ -18,6 +18,7 @@ import { domainLabel } from '../categories/resolver';
 import { Favicon } from '../shared/ui/Favicon';
 import { BRANDING } from '../shared/branding';
 import { applyTheme } from '../shared/theme';
+import { mergeLiveSession } from '../tracking/live-stats';
 
 const IDLE_COPY: Record<NonNullable<LiveStatus['reason']>, string> = {
   paused: 'Tracking paused',
@@ -28,29 +29,56 @@ const IDLE_COPY: Record<NonNullable<LiveStatus['reason']>, string> = {
 };
 
 export function Popup() {
-  const [stats, setStats] = useState<RangeStats | null>(null);
+  const [stored, setStored] = useState<RangeStats | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [live, setLive] = useState<LiveStatus | null>(null);
+  /** Advances once a second so the running session's contribution stays current. */
+  const [now, setNow] = useState(() => Date.now());
+
+  const loadStored = useMemo(
+    () => () => {
+      const today = toDateKey(Date.now());
+      return repository
+        .getRangeStats(today, today)
+        .then(setStored)
+        .catch((error) => console.error('[TimeScope] popup failed to load', error));
+    },
+    [],
+  );
 
   useEffect(() => {
-    const today = toDateKey(Date.now());
-    void Promise.all([repository.getRangeStats(today, today), repository.getSettings()])
-      .then(([rangeStats, loadedSettings]) => {
-        setStats(rangeStats);
-        setSettings(loadedSettings);
-        applyTheme(loadedSettings.theme);
+    void loadStored();
+    void repository
+      .getSettings()
+      .then((loaded) => {
+        setSettings(loaded);
+        applyTheme(loaded.theme);
       })
-      .catch((error) => console.error('[TimeScope] popup failed to load', error));
-  }, []);
+      .catch((error) => console.error('[TimeScope] popup failed to load settings', error));
+  }, [loadStored]);
+
+  /**
+   * The start of the session last seen running. When it changes, the previous
+   * session has just been committed to storage, so stored totals are refetched
+   * - otherwise the merge below would briefly count that session twice.
+   */
+  const lastSessionStart = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const poll = () => {
+      setNow(Date.now());
       chrome.runtime.sendMessage({ type: 'get-live-status' }, (response?: LiveStatus) => {
         // A missing response means the worker is starting; the next tick retries.
         if (chrome.runtime.lastError || cancelled || !response) return;
         setLive(response);
+
+        const startedAt = response.current?.startedAt ?? null;
+        if (lastSessionStart.current !== null && lastSessionStart.current !== startedAt) {
+          void loadStored();
+        }
+        lastSessionStart.current = startedAt;
       });
     };
 
@@ -62,7 +90,17 @@ export function Popup() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [loadStored]);
+
+  /**
+   * Stored totals exclude the session still running, because time is written
+   * only when a session closes. Folding it in here is what makes "Today" agree
+   * with the timer shown under "Currently".
+   */
+  const stats = useMemo(
+    () => (stored && settings ? mergeLiveSession(stored, live, settings, now) : stored),
+    [stored, settings, live, now],
+  );
 
   const openDashboard = (hash = '') => {
     void chrome.tabs.create({ url: chrome.runtime.getURL(`dashboard.html${hash}`) });

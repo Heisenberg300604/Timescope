@@ -263,9 +263,22 @@ Manifest V3 suspends workers constantly, so this must be right.
 **Expected:** the time recorded before the reload is intact. No duplicated
 session in the Sessions view. Tracking continues normally afterwards.
 
-Because recovery credits time only up to the last heartbeat, you may lose up to
-one minute of the in-flight session. That is intended — it under-counts rather
-than inventing time.
+The in-flight session should survive intact: a reload is a worker restart, and
+a restart within a couple of minutes of the last heartbeat is treated as
+continuous rather than as a stopped session.
+
+### Quiet reading is recorded
+
+This is the check that catches the most subtle class of bug. The worker is
+suspended after ~30 seconds without events, so a page you simply *read*
+generates no events at all.
+
+1. Open a long article and **read it for 5 minutes without switching tabs**.
+   Scroll normally; do not switch tabs or windows.
+2. Switch to another tab, then open the popup.
+
+**Expected:** the article's site shows ~5 minutes. If it shows under a minute,
+time is being lost across worker suspensions.
 
 ### Browser restart
 

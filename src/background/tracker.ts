@@ -36,6 +36,21 @@ import { toDateKey } from '../utils/date';
  */
 export const HEARTBEAT_MINUTES = 1;
 
+/**
+ * How stale a persisted snapshot may be and still be treated as continuous.
+ *
+ * The heartbeat alarm guarantees the worker checks in roughly once a minute
+ * whenever a session is open. So a snapshot younger than a couple of heartbeats
+ * means the worker was merely SUSPENDED - normal Manifest V3 behaviour - and
+ * the session never actually stopped. A snapshot older than that means
+ * something we cannot account for happened: the machine slept, the browser
+ * quit, alarms stopped firing. Only then is the unverified tail discarded.
+ *
+ * The slack absorbs alarm delivery jitter, which Chrome does not promise to
+ * keep tight under load.
+ */
+export const RESUME_WINDOW_MS = HEARTBEAT_MINUTES * 60_000 * 2 + 30_000;
+
 export const ALARM_HEARTBEAT = 'timescope:heartbeat';
 export const ALARM_MIDNIGHT = 'timescope:midnight';
 
@@ -91,8 +106,8 @@ export class Tracker {
       chrome.idle.setDetectionInterval(settings.idleThresholdSeconds);
       this.idleState = await queryIdleState(settings.idleThresholdSeconds);
 
-      await this.recoverInterruptedSession();
       await this.scheduleAlarms(now);
+      await this.recoverInterruptedSession(now);
       // Called directly, not via `reconcile()`: we are already inside the
       // queue, and enqueuing from within a queued task would deadlock.
       await this.reconcileNow(now);
@@ -100,24 +115,45 @@ export class Tracker {
   }
 
   /**
-   * Settle an open session left behind by a previous worker generation.
+   * Take charge of a session left behind by a previous worker generation.
    *
-   * The session is credited up to its last heartbeat rather than to now,
-   * because everything after that point is unverified: the browser may have
-   * been closed, the machine asleep, or the worker dead for hours.
+   * A suspended worker is not a stopped session. Manifest V3 kills the worker
+   * after about thirty seconds without events, so a user reading a single
+   * article generates no events and is suspended and revived repeatedly. If
+   * every revival closed the open session, that reading time would be recorded
+   * as a string of empty intervals and thrown away.
+   *
+   * So the snapshot's age decides:
+   *
+   *   fresh (within RESUME_WINDOW_MS)  the worker was only suspended. Adopt the
+   *                                    session unchanged; it never stopped, and
+   *                                    the caller's transition decides whether
+   *                                    it continues or closes at `now`.
+   *
+   *   stale                            something unaccounted for happened. Credit
+   *                                    only up to the last confirmed heartbeat
+   *                                    and drop the unverified tail.
    */
-  private async recoverInterruptedSession(): Promise<void> {
+  private async recoverInterruptedSession(now: number): Promise<void> {
     const persisted = await this.repo.getTrackerState();
     if (!persisted) return;
 
     await this.repo.setTrackerState(null);
+
+    const staleness = now - persisted.lastHeartbeatAt;
+    if (staleness >= 0 && staleness <= RESUME_WINDOW_MS) {
+      // Continuous. `reconcileNow` either leaves this session running (same
+      // domain) or closes it at `now` (the user moved on), so no time is lost
+      // and none is invented.
+      this.sessions.adopt(persisted);
+      return;
+    }
+
     await this.repo.commitInterval(
       persisted.domain,
       persisted.startedAt,
       persisted.lastHeartbeatAt,
     );
-    // State is NOT adopted: `reconcile()` re-derives the truth from the browser
-    // a moment later, which is what prevents a duplicate session here.
   }
 
   private async scheduleAlarms(now: number): Promise<void> {

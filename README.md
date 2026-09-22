@@ -258,19 +258,31 @@ stopped, not a minute later.
 
 ### Surviving the service-worker lifecycle
 
-Manifest V3 suspends service workers aggressively. TimeScope assumes the worker
-can die at any instant.
+Manifest V3 suspends service workers aggressively — after roughly thirty
+seconds without events. Reading a single long article generates no tab or
+window events at all, so the worker running the tracker is killed and revived
+repeatedly in the middle of perfectly ordinary browsing.
+
+**A suspended worker is not a stopped session.** TimeScope treats the two
+differently, and the distinction is the whole trick.
 
 The open session is mirrored to storage on every transition and refreshed by a
-one-minute heartbeat. When the worker restarts, it credits the interrupted
-session **only up to its last heartbeat** — never up to the present moment,
-because everything after that point is unverified. The browser may have been
-closed, or the machine asleep, for hours.
+one-minute heartbeat alarm. When a new worker generation starts, it looks at how
+stale that snapshot is:
 
-This bounds any over-count after an unclean shutdown to a single minute, and
-under-counts rather than inventing time. The recovered session is then
-discarded from memory and live state is re-derived from the browser, which is
-what prevents a duplicate session on restart.
+| Snapshot age | Interpretation | Action |
+|---|---|---|
+| Within ~2½ min | The worker was merely suspended. The heartbeat proves the session was alive a moment ago. | **Adopt** the session unchanged — it never stopped. |
+| Older | Something unaccounted for happened: the machine slept, the browser quit, alarms stopped firing. | Credit only up to the last confirmed heartbeat; discard the unverified tail. |
+
+Adopting means the session continues with its original start time, so a revival
+costs nothing. The subsequent reconcile then either leaves it running (you are
+still on the same site) or closes it at the present moment (you moved on), which
+is also what prevents a duplicate session on restart.
+
+The stale path deliberately **under-counts rather than inventing time**: after a
+laptop wakes from a week of sleep, the extension credits the minute it could
+verify and nothing more.
 
 ### Midnight
 
