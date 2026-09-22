@@ -16,6 +16,7 @@ export default {
         'surface-hover': 'var(--surface-hover)',
         line: 'var(--line)',
         'line-strong': 'var(--line-strong)',
+        'control-line': 'var(--control-line)',
         ink: 'var(--ink)',
         'ink-secondary': 'var(--ink-secondary)',
         'ink-muted': 'var(--ink-muted)',

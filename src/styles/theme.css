@@ -22,10 +22,12 @@
 
   --line: #e7e7e3;
   --line-strong: #d6d6d1;
+  /* Borders on interactive controls, held at 3:1 per WCAG 1.4.11. */
+  --control-line: #959590;
 
   --ink: #18181a;
   --ink-secondary: #5f5f5a;
-  --ink-muted: #8a8a83;
+  --ink-muted: #74746d;
 
   --accent: #2563a8;
   --accent-hover: #1e5291;
@@ -58,10 +60,11 @@
 
     --line: #26262a;
     --line-strong: #34343a;
+  --control-line: #66666c;
 
     --ink: #f2f2f0;
     --ink-secondary: #a0a09a;
-    --ink-muted: #76766f;
+    --ink-muted: #818179;
 
     --accent: #5d9ae0;
     --accent-hover: #74a9e6;
@@ -93,10 +96,11 @@
 
   --line: #26262a;
   --line-strong: #34343a;
+  --control-line: #66666c;
 
   --ink: #f2f2f0;
   --ink-secondary: #a0a09a;
-  --ink-muted: #76766f;
+  --ink-muted: #818179;
 
   --accent: #5d9ae0;
   --accent-hover: #74a9e6;
