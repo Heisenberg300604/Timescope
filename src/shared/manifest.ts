@@ -8,7 +8,7 @@
  * a domain and nothing else - it never injects a content script, never reads
  * page content, and makes no network requests of any kind.
  */
-import { BRANDING } from './branding';
+import { BRANDING } from './branding.js';
 
 export function buildManifest(version: string): chrome.runtime.ManifestV3 {
   return {

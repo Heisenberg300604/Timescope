@@ -150,7 +150,7 @@ function clampDays(v: unknown, fallback: number): number {
 
 function isStringRecord(v: unknown): v is Record<string, string> {
   return (
-    !!v &&
+    v !== null &&
     typeof v === 'object' &&
     Object.values(v as object).every((x) => typeof x === 'string')
   );
@@ -164,7 +164,7 @@ function parseCategories(value: unknown): import('../types').Category[] {
   if (!Array.isArray(value) || value.length === 0) return DEFAULT_CATEGORIES;
   const parsed = value.filter(
     (c): c is import('../types').Category =>
-      !!c &&
+      c !== null &&
       typeof c === 'object' &&
       typeof (c as { id?: unknown }).id === 'string' &&
       typeof (c as { label?: unknown }).label === 'string' &&

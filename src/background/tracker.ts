@@ -122,7 +122,7 @@ export class Tracker {
 
   private async scheduleAlarms(now: number): Promise<void> {
     await chrome.alarms.clear(ALARM_HEARTBEAT);
-    chrome.alarms.create(ALARM_HEARTBEAT, { periodInMinutes: HEARTBEAT_MINUTES });
+    await chrome.alarms.create(ALARM_HEARTBEAT, { periodInMinutes: HEARTBEAT_MINUTES });
     await this.scheduleMidnightAlarm(now);
   }
 
@@ -141,7 +141,7 @@ export class Tracker {
       today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 5, 0,
     ).getTime();
     await chrome.alarms.clear(ALARM_MIDNIGHT);
-    chrome.alarms.create(ALARM_MIDNIGHT, { when: midnight });
+    await chrome.alarms.create(ALARM_MIDNIGHT, { when: midnight });
   }
 
   // -- event handlers --------------------------------------------------------

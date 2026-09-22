@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import { buildManifest } from './src/shared/manifest';
+import { buildManifest } from './src/shared/manifest.js';
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
 
@@ -35,6 +35,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Chrome supports modulepreload natively, and the polyfill's only job is to
+    // `fetch()` preload links. Dropping it removes the single network-shaped
+    // call from the bundle, so "this extension makes no requests" stays
+    // verifiable with a grep rather than an argument.
+    modulePreload: { polyfill: false },
     // Extension pages load from disk, so there is no cache-busting benefit to
     // hashed filenames, and stable names make a build diff readable.
     rollupOptions: {
