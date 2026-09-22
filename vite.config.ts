@@ -1,10 +1,13 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { buildManifest } from './src/shared/manifest';
 
-const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+const rootDir = dirname(fileURLToPath(import.meta.url));
+
+const pkg = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf8')) as {
   version: string;
 };
 
@@ -36,9 +39,9 @@ export default defineConfig({
     // hashed filenames, and stable names make a build diff readable.
     rollupOptions: {
       input: {
-        dashboard: resolve(__dirname, 'dashboard.html'),
-        popup: resolve(__dirname, 'popup.html'),
-        background: resolve(__dirname, 'src/background/index.ts'),
+        dashboard: resolve(rootDir, 'dashboard.html'),
+        popup: resolve(rootDir, 'popup.html'),
+        background: resolve(rootDir, 'src/background/index.ts'),
       },
       output: {
         entryFileNames: '[name].js',
@@ -49,12 +52,9 @@ export default defineConfig({
     // Source maps make the built worker debuggable in chrome://extensions
     // without shipping original sources to users of a packed build.
     sourcemap: false,
+    // Extension pages run in the browser that installed them, so there is no
+    // need to transpile below what that browser already supports.
     target: 'esnext',
-    minify: 'esbuild',
-  },
-
-  test: {
-    environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    minify: true,
   },
 });

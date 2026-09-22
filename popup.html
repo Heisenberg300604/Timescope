@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TimeScope</title>
+    <style>
+      /* Sized here rather than in CSS so the popup window never flashes at the
+         wrong dimensions before the stylesheet loads. */
+      html,
+      body {
+        margin: 0;
+        width: 19rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/popup/main.tsx"></script>
+  </body>
+</html>
