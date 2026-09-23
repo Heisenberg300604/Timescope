@@ -72,6 +72,7 @@ describe('TrackingRepository', () => {
     });
 
     it('clamps an out-of-range idle threshold', async () => {
+      expect((await repo.saveSettings({ idleThresholdSeconds: 0 })).idleThresholdSeconds).toBe(0);
       expect((await repo.saveSettings({ idleThresholdSeconds: 2 })).idleThresholdSeconds).toBe(15);
       expect((await repo.saveSettings({ idleThresholdSeconds: 99_999 })).idleThresholdSeconds)
         .toBe(900);

@@ -36,6 +36,8 @@ export const KEYS = {
  * short enough that stepping away from the desk stops the clock promptly.
  */
 export const DEFAULT_IDLE_THRESHOLD_SECONDS = 60;
+/** `0` means do not pause tracking for OS-level inactivity. */
+export const IDLE_DETECTION_DISABLED_SECONDS = 0;
 export const MIN_IDLE_THRESHOLD_SECONDS = 15;
 export const MAX_IDLE_THRESHOLD_SECONDS = 15 * 60;
 
@@ -140,6 +142,7 @@ export function parseSettings(value: unknown): Settings {
 
 function clampIdleThreshold(v: unknown): number {
   if (typeof v !== 'number' || !Number.isFinite(v)) return DEFAULT_IDLE_THRESHOLD_SECONDS;
+  if (v === IDLE_DETECTION_DISABLED_SECONDS) return IDLE_DETECTION_DISABLED_SECONDS;
   return Math.min(MAX_IDLE_THRESHOLD_SECONDS, Math.max(MIN_IDLE_THRESHOLD_SECONDS, Math.round(v)));
 }
 

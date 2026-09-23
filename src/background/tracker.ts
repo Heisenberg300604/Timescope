@@ -22,6 +22,7 @@
 
 import type { LiveStatus, PersistedTrackerState } from '../types';
 import { TrackingRepository } from '../storage/repository';
+import { IDLE_DETECTION_DISABLED_SECONDS } from '../storage/schema';
 import { SessionManager, resolveTarget, type TrackingInput } from '../tracking/session-manager';
 import { toDateKey } from '../utils/date';
 
@@ -102,9 +103,7 @@ export class Tracker {
       await this.repo.initialize();
       const settings = await this.repo.getSettings();
 
-      // Chrome clamps this to a 15s minimum; settings clamp to the same floor.
-      chrome.idle.setDetectionInterval(settings.idleThresholdSeconds);
-      this.idleState = await queryIdleState(settings.idleThresholdSeconds);
+      await this.configureIdleDetection(settings.idleThresholdSeconds);
 
       await this.scheduleAlarms(now);
       await this.recoverInterruptedSession(now);
@@ -160,6 +159,22 @@ export class Tracker {
     await chrome.alarms.clear(ALARM_HEARTBEAT);
     await chrome.alarms.create(ALARM_HEARTBEAT, { periodInMinutes: HEARTBEAT_MINUTES });
     await this.scheduleMidnightAlarm(now);
+  }
+
+  /**
+   * Keep the cached idle state aligned with the user's preference. Chrome has
+   * no "turn idle detection off" API, so the disabled setting deliberately
+   * ignores idle events instead of supplying an impractically large timeout.
+   */
+  private async configureIdleDetection(thresholdSeconds: number): Promise<void> {
+    if (thresholdSeconds === IDLE_DETECTION_DISABLED_SECONDS) {
+      this.idleState = 'active';
+      return;
+    }
+
+    // Chrome clamps this to a 15s minimum; settings clamp to the same floor.
+    chrome.idle.setDetectionInterval(thresholdSeconds);
+    this.idleState = await queryIdleState(thresholdSeconds);
   }
 
   /**
@@ -238,6 +253,15 @@ export class Tracker {
 
   /** `chrome.idle.onStateChanged`. */
   async onIdleStateChanged(state: chrome.idle.IdleState, now = Date.now()): Promise<void> {
+    const settings = await this.repo.getSettings();
+    if (settings.idleThresholdSeconds === IDLE_DETECTION_DISABLED_SECONDS) {
+      // Chrome can still dispatch an event configured before the user chose
+      // "Never". Treat it as informational: a focused video should continue
+      // to accrue time without keyboard or mouse input.
+      this.idleState = 'active';
+      return;
+    }
+
     const previous = this.idleState;
     this.idleState = state === 'active' ? 'active' : state;
 
@@ -246,7 +270,6 @@ export class Tracker {
       // already elapsed, so "now" is late by exactly that much. Backdating the
       // session end means walking away from a playing video stops the clock at
       // the moment the user actually stopped, not a minute later.
-      const settings = await this.repo.getSettings();
       const wentIdleAt = now - settings.idleThresholdSeconds * 1000;
       await this.reconcile(wentIdleAt);
       return;
@@ -289,7 +312,7 @@ export class Tracker {
   async onSettingsChanged(now = Date.now()): Promise<void> {
     this.repo.invalidateSettings();
     const settings = await this.repo.getSettings();
-    chrome.idle.setDetectionInterval(settings.idleThresholdSeconds);
+    await this.configureIdleDetection(settings.idleThresholdSeconds);
     await this.reconcile(now);
   }
 

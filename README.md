@@ -245,7 +245,9 @@ scattered booleans, so every transition is deterministic.
 ### Idle detection
 
 After 60 seconds of no keyboard or mouse activity, Chrome reports the user as
-idle and the clock stops. The threshold is configurable (30s to 5 minutes).
+idle and the clock stops. The threshold is configurable (30s to 5 minutes), or
+can be set to **Never**. With **Never**, a focused tab continues to count until
+you switch away or the browser loses focus, which is useful for long videos.
 
 60 seconds is the default because it is long enough that reading a long article
 or watching a video without touching the mouse is not mistaken for absence, and

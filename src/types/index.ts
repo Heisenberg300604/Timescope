@@ -53,8 +53,8 @@ export interface Settings {
   /** Master switch. When false the tracker parks in IDLE and records nothing. */
   trackingEnabled: boolean;
   /**
-   * Seconds of OS-level inactivity before time stops counting.
-   * Chrome enforces a 15s floor on `chrome.idle.setDetectionInterval`.
+   * Seconds of OS-level inactivity before time stops counting. `0` disables
+   * inactivity pausing; Chrome enforces a 15s floor for enabled detection.
    */
   idleThresholdSeconds: number;
   /** Domain patterns that are never tracked. See `utils/exclusions.ts`. */

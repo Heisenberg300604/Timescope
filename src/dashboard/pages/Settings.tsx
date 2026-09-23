@@ -87,6 +87,7 @@ export function Settings() {
               onChange={(event) => void save({ idleThresholdSeconds: Number(event.target.value) })}
               className="rounded border border-control-line bg-surface px-2 py-1 text-sm text-ink"
             >
+              <option value={0}>Never</option>
               <option value={30}>30 seconds</option>
               <option value={60}>1 minute</option>
               <option value={180}>3 minutes</option>

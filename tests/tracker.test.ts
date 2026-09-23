@@ -89,6 +89,20 @@ describe('Tracker', () => {
   });
 
   describe('idle', () => {
+    it('keeps recording a focused video when inactivity pausing is disabled', async () => {
+      await boot('https://www.netflix.com/watch/123');
+      await repo.saveSettings({ idleThresholdSeconds: 0 });
+      await tracker.onSettingsChanged(T);
+
+      // Netflix can play for a long time with no mouse or keyboard input.
+      fake.actions.setIdle('idle');
+      await tracker.onIdleStateChanged('idle', T + 30 * MIN);
+      fake.actions.blurBrowser();
+      await tracker.reconcile(T + 30 * MIN);
+
+      expect(await totals()).toEqual({ 'netflix.com': 30 * MIN });
+    });
+
     it('stops counting after the idle threshold and backdates to when the user left', async () => {
       await boot('https://youtube.com/watch?v=1');
 
